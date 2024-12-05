@@ -1,6 +1,6 @@
 {
     "name": "playwright-ci-reporter",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "A CI-friendly custom reporter for Playwright tests with enhanced logging.",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
@@ -17,16 +17,17 @@
     "author": "Basal John",
     "license": "MIT",
     "dependencies": {
+        "essential-common-utils": "^1.4.4",
         "winston": "^3.8.2"
     },
     "devDependencies": {
-        "typescript": "^5.3.3",
-        "@types/node": "^20.6.1",
         "@playwright/test": "^1.49.0",
+        "@types/node": "^20.6.1",
         "eslint-config-prettier": "^9.1.0",
         "eslint-plugin-prettier": "^5.2.1",
         "prettier": "^3.4.1",
-        "standard-version": "^9.5.0"
+        "standard-version": "^9.5.0",
+        "typescript": "^5.3.3"
     },
     "scripts": {
         "build": "tsc",
