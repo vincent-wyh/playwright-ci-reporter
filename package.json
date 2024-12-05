@@ -1,25 +1,37 @@
 {
-  "name": "playwright-ci-reporter",
-  "version": "1.0.0",
-  "description": "A CI-friendly custom reporter for Playwright tests with enhanced logging.",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/basal-john/playwright-ci-reporter.git"
-  },
-  "keywords": ["playwright", "ci", "reporter", "logger"],
-  "author": "Basal John",
-  "license": "MIT",
-  "dependencies": {
-    "winston": "^3.8.2"
-  },
-  "devDependencies": {
-    "typescript": "^5.3.3",
-    "@types/node": "^20.6.1",
-    "@playwright/test": "^1.49.0"
-  },
-  "scripts": {
-    "build": "tsc"
-  }
+    "name": "playwright-ci-reporter",
+    "version": "1.0.0",
+    "description": "A CI-friendly custom reporter for Playwright tests with enhanced logging.",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/basal-john/playwright-ci-reporter.git"
+    },
+    "keywords": [
+        "playwright",
+        "ci",
+        "reporter",
+        "logger"
+    ],
+    "author": "Basal John",
+    "license": "MIT",
+    "dependencies": {
+        "winston": "^3.8.2"
+    },
+    "devDependencies": {
+        "typescript": "^5.3.3",
+        "@types/node": "^20.6.1",
+        "@playwright/test": "^1.49.0",
+        "eslint-config-prettier": "^9.1.0",
+        "eslint-plugin-prettier": "^5.2.1",
+        "prettier": "^3.4.1",
+        "standard-version": "^9.5.0"
+    },
+    "scripts": {
+        "build": "tsc",
+        "lint": "eslint . --fix && prettier . --write",
+        "prettier": "prettier . --write",
+        "release": "standard-version"
+    }
 }
