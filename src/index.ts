@@ -74,7 +74,7 @@ export default class CustomReporterConfig implements Reporter {
 
     onEnd(): void {
         if (this.failures.size > 0) {
-            console.log(`\n\x1b[1m❌ Summary of Failures:\x1b[0m\n`);
+            console.log(`\n\x1b[1m❌ Summary of Failures:\x1b[0m`);
             let index = 1;
             for (const [title, failure] of this.failures) {
                 console.log(`
@@ -83,14 +83,13 @@ export default class CustomReporterConfig implements Reporter {
     ⏱ Time Taken: ${failure.timeTaken}s
     📜 Error Message: ${failure.message}
     📜 Stack Trace:
-    ${failure.stack}
-    `);
+    ${failure.stack}`);
             }
-            console.log(`${this.getRandomFailureQuote()}\n`);
+            console.log(`\n${this.getRandomFailureQuote()}`);
         } else {
             console.log(`\n\x1b[1m✅ All Tests Passed:\x1b[0m`);
-            console.log(`${this.getRandomSuccessQuote()}\n`);
+            console.log(`${this.getRandomSuccessQuote()}`);
         }
-        logger.info(`✨ All tests completed.\n`);
+        logger.info(`✨ All tests completed.`);
     }
 }
