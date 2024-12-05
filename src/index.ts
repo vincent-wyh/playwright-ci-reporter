@@ -78,18 +78,19 @@ export default class CustomReporterConfig implements Reporter {
             let index = 1;
             for (const [title, failure] of this.failures) {
                 console.log(`
-Failure #${index++}
-🚨 Test: ${title}
-⏱ Time Taken: ${failure.timeTaken}s
-📜 Error Message: ${failure.message}
-📜 Stack Trace:\n${failure.stack}
-                `);
+    Failure #${index++}
+    🚨 Test: ${title}
+    ⏱ Time Taken: ${failure.timeTaken}s
+    📜 Error Message: ${failure.message}
+    📜 Stack Trace:
+    ${failure.stack}
+    `);
             }
-            console.log(`\n${this.getRandomFailureQuote()}`);
+            console.log(`${this.getRandomFailureQuote()}\n`);
         } else {
-            console.log(`\n\x1b[1m✅ All Tests Passed:\x1b[0m\n`);
-            console.log(`${this.getRandomSuccessQuote()}`);
+            console.log(`\n\x1b[1m✅ All Tests Passed:\x1b[0m`);
+            console.log(`${this.getRandomSuccessQuote()}\n`);
         }
-        logger.info(`✨ All tests completed.`);
+        logger.info(`✨ All tests completed.\n`);
     }
 }
