@@ -30,7 +30,6 @@ Integrate the `playwright-ci-reporter` into your Playwright configuration file (
 
 ```typescript
 import {defineConfig} from '@playwright/test';
-import PlaywrightCIReporter from 'playwright-ci-reporter';
 
 export default defineConfig({
     testDir: './tests', // Adjust to your test directory
