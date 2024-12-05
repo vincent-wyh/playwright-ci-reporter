@@ -1,0 +1,17 @@
+{
+  "name": "playwright-ci-reporter",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "winston": "^3.8.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/node": "^20.6.1",
+    "@playwright/test": "^1.49.0"
+  }
+}
