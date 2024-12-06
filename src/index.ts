@@ -22,9 +22,9 @@ const logger = winston.createLogger({
     transports: [new winston.transports.File({filename: 'logs/info.log', level: 'info'}), consoleTransport],
 });
 
-// Custom Reporter
 export default class CustomReporterConfig implements Reporter {
     private failures = new Map<string, {message: string; stack: string; timeTaken: string}>();
+    private startTime: number = 0; // To track test run start time
 
     // Generates a random failure quote
     private getRandomFailureQuote(): string {
@@ -56,6 +56,13 @@ export default class CustomReporterConfig implements Reporter {
         return quotes[Math.floor(Math.random() * quotes.length)];
     }
 
+    // Capture the start time of the test run
+    onBegin(): void {
+        this.startTime = Date.now();
+        logger.info('🚀 Test run started!');
+        console.log(`🚀 Test run started at ${new Date(this.startTime).toISOString()}`);
+    }
+
     // Logs each test's result
     onTestEnd(test: TestCase, result: TestResult): void {
         const statusIcon = result.status === 'passed' ? '✅' : '❌';
@@ -81,8 +88,13 @@ export default class CustomReporterConfig implements Reporter {
         }
     }
 
-    // Logs a summary of failures or a success message
+    // Logs a summary of failures or a success message, along with total execution time
     onEnd(): void {
+        const endTime = Date.now();
+        const totalTime = ((endTime - this.startTime) / 1000).toFixed(2); // Total time in seconds
+
+        console.log(`\n✨ All tests completed in ${totalTime}s.`); // Added log for total execution time
+
         if (this.failures.size > 0) {
             console.log(`\n\x1b[1m❌ Summary of Failures:\x1b[0m`);
             let index = 1;
@@ -100,6 +112,7 @@ ${failure.stack}`);
             console.log(`\n\x1b[1m✅ All Tests Passed:\x1b[0m`);
             console.log(`${this.getRandomSuccessQuote()}`);
         }
-        logger.info(`✨ All tests completed.`);
+
+        logger.info(`✨ All tests completed in ${totalTime}s.`);
     }
 }
