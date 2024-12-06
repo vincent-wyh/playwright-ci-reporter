@@ -2,12 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-## [1.1.0](https://github.com/basal-john/playwright-ci-reporter/compare/v1.0.8...v1.1.0) (2024-12-06)
+### [1.1.2](https://github.com/basal-john/playwright-ci-reporter/compare/v1.1.0...v1.1.2) (2024-12-06)
 
+## [1.1.0](https://github.com/basal-john/playwright-ci-reporter/compare/v1.0.8...v1.1.0) (2024-12-06)
 
 ### Features
 
-* **reporter:** track test run duration and log start time ([7c56d54](https://github.com/basal-john/playwright-ci-reporter/commit/7c56d54672bf834a4e335662abd3c495d099707c))
+- **reporter:** track test run duration and log start time ([7c56d54](https://github.com/basal-john/playwright-ci-reporter/commit/7c56d54672bf834a4e335662abd3c495d099707c))
 
 ### [1.0.8](https://github.com/basal-john/playwright-ci-reporter/compare/v1.0.7...v1.0.8) (2024-12-06)
 
