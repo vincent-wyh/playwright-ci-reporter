@@ -4,7 +4,6 @@ import {format} from 'winston';
 
 const {combine, timestamp, printf, colorize} = format;
 
-// Console transport for colorful logs
 const consoleTransport = new winston.transports.Console({
     format: combine(
         colorize(),
@@ -12,7 +11,6 @@ const consoleTransport = new winston.transports.Console({
     ),
 });
 
-// Logger configuration
 const logger = winston.createLogger({
     level: 'info',
     format: combine(
@@ -24,9 +22,8 @@ const logger = winston.createLogger({
 
 export default class CustomReporterConfig implements Reporter {
     private failures = new Map<string, {message: string; stack: string; timeTaken: string}>();
-    private startTime: number = 0; // To track test run start time
+    private startTime: number = 0;
 
-    // Generates a random failure quote
     private getRandomFailureQuote(): string {
         const quotes = [
             '“Houston, we have a problem.” - Apollo 13',
@@ -42,7 +39,6 @@ export default class CustomReporterConfig implements Reporter {
         return quotes[Math.floor(Math.random() * quotes.length)];
     }
 
-    // Generates a random success quote
     private getRandomSuccessQuote(): string {
         const quotes = [
             '“Hasta la vista, baby.” - The Terminator',
@@ -56,14 +52,10 @@ export default class CustomReporterConfig implements Reporter {
         return quotes[Math.floor(Math.random() * quotes.length)];
     }
 
-    // Capture the start time of the test run
     onBegin(): void {
-        this.startTime = Date.now();
         logger.info('🚀 Test run started!');
-        console.log(`🚀 Test run started at ${new Date(this.startTime).toISOString()}`);
     }
 
-    // Logs each test's result
     onTestEnd(test: TestCase, result: TestResult): void {
         const statusIcon = result.status === 'passed' ? '✅' : '❌';
         const timeTaken = (result.duration / 1000).toFixed(2);
@@ -88,12 +80,11 @@ export default class CustomReporterConfig implements Reporter {
         }
     }
 
-    // Logs a summary of failures or a success message, along with total execution time
     onEnd(): void {
         const endTime = Date.now();
-        const totalTime = ((endTime - this.startTime) / 1000).toFixed(2); // Total time in seconds
+        const totalTime = ((endTime - this.startTime) / 1000).toFixed(2);
 
-        console.log(`\n✨ All tests completed in ${totalTime}s.`); // Added log for total execution time
+        console.log(`\n✨ All tests completed in ${totalTime}s.`);
 
         if (this.failures.size > 0) {
             console.log(`\n\x1b[1m❌ Summary of Failures:\x1b[0m`);
@@ -112,7 +103,5 @@ ${failure.stack}`);
             console.log(`\n\x1b[1m✅ All Tests Passed:\x1b[0m`);
             console.log(`${this.getRandomSuccessQuote()}`);
         }
-
-        logger.info(`✨ All tests completed in ${totalTime}s.`);
     }
 }
