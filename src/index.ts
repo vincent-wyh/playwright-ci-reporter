@@ -24,7 +24,8 @@ const SUCCESS_QUOTES = [
 ];
 
 export default class CustomReporterConfig implements Reporter {
-    private failures: {title: string; message: string; timeTaken: string}[] = [];
+    private failures: {title: string; message: string; stack?: string; timeTaken: string}[] = [];
+    private setupFailures: {message: string; stack?: string}[] = [];
     private startTime: number = 0;
     private passedCount: number = 0;
     private failedCount: number = 0;
@@ -45,6 +46,20 @@ export default class CustomReporterConfig implements Reporter {
     }
 
     /**
+     * Invoked when a setup or global error occurs.
+     */
+    onError(error: Error): void {
+        this.setupFailures.push({
+            message: error.message,
+            stack: error.stack,
+        });
+        console.error(`❌ Setup or runtime error: ${error.message}`);
+        if (error.stack) {
+            console.error(error.stack);
+        }
+    }
+
+    /**
      * Invoked at the end of each test.
      */
     onTestEnd(test: TestCase, result: TestResult): void {
@@ -57,9 +72,11 @@ export default class CustomReporterConfig implements Reporter {
             const failure = result.errors[0];
             if (failure) {
                 const message = failure.message || '';
+                const stack = failure.stack || '';
                 this.failures.push({
                     title: test.title,
                     message,
+                    stack,
                     timeTaken,
                 });
             }
@@ -76,6 +93,20 @@ export default class CustomReporterConfig implements Reporter {
         const totalTests = this.passedCount + this.failedCount;
 
         console.log(`\n`);
+        if (this.setupFailures.length > 0) {
+            console.error(`❌ Setup or runtime errors occurred:`);
+            this.setupFailures.forEach((failure, index) => {
+                console.error(`
+Setup Failure #${index + 1}
+   Message: ${failure.message}
+   ${failure.stack ? `Stack Trace:\n${failure.stack}` : ''}
+`);
+            });
+            console.error(`❌ Test run aborted due to setup failures.`);
+            console.error(`"${this.getRandomQuote(FAILURE_QUOTES)}"`);
+            return;
+        }
+
         if (this.failedCount > 0) {
             console.log(
                 `❌ ${this.failedCount} of ${totalTests} tests failed | ${this.passedCount} passed | ⏱ Total Execution Time: ${totalTime}s`,
@@ -85,6 +116,7 @@ export default class CustomReporterConfig implements Reporter {
                 console.log(`
   ${index + 1}. ${failure.title}
      Error: ${failure.message}
+     ${failure.stack ? `Stack Trace:\n${failure.stack}` : ''}
      Time Taken: ${failure.timeTaken}s
 `);
             });
