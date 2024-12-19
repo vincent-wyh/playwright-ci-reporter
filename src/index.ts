@@ -65,16 +65,17 @@ export default class CustomReporterConfig implements Reporter {
     onTestEnd(test: TestCase, result: TestResult): void {
         const timeTaken = (result.duration / 1000).toFixed(2);
 
+        // Handle retries
         if (result.retry) {
             console.log(`🔄 Retry attempt for ${test.title} (${result.status})`);
-            return; // Skip logging this attempt, as it will be logged in the final attempt
+            return; // Skip further logging for retries
         }
 
         if (result.status === 'passed') {
-            this.passedCount++;
             if (test.retries && test.retries > 0) {
                 console.log(`✅ Retried and passed: ${test.title} in ${timeTaken}s`);
             } else {
+                this.passedCount++;
                 console.log(`✅ ${test.title} in ${timeTaken}s`);
             }
         } else if (result.status === 'failed' || result.status === 'timedOut') {
