@@ -64,62 +64,54 @@ export default class CustomReporterConfig implements Reporter {
      */
     onTestEnd(test: TestCase, result: TestResult): void {
         const timeTaken = (result.duration / 1000).toFixed(2);
+
         if (result.status === 'passed') {
             this.passedCount++;
             console.log(`✅ ${test.title} in ${timeTaken}s`);
-        } else if (result.status === 'failed') {
-            this.failedCount++;
-            const failure = result.errors[0];
-            if (failure) {
-                const message = failure.message || '';
-                const stack = failure.stack || '';
+        } else if (result.status === 'failed' || result.status === 'timedOut') {
+            if (result.retry) {
+                console.log(`🔄 Retry attempt for ${test.title} (${result.status})`);
+            } else {
+                this.failedCount++;
+                console.error(`❌ ${test.title} failed in ${timeTaken}s`);
+
+                // Capture for the summary
                 this.failures.push({
                     title: test.title,
-                    message,
-                    stack,
+                    message: result.errors.map((e) => e.message || 'No error message available.').join('\n'),
+                    stack: result.errors.map((e) => e.stack || 'No stack trace available.').join('\n'),
                     timeTaken,
                 });
             }
-            console.error(`❌ ${test.title} in ${timeTaken}s`);
+        } else if (result.status === 'skipped') {
+            console.warn(`⚠️ ${test.title} was skipped.`);
         }
     }
 
-    /**
-     * Invoked when all tests have finished.
-     */
     onEnd(): void {
         const endTime = Date.now();
         const totalTime = ((endTime - this.startTime) / 1000).toFixed(2);
         const totalTests = this.passedCount + this.failedCount;
 
         console.log(`\n`);
-        if (this.setupFailures.length > 0) {
-            console.error(`❌ Setup or runtime errors occurred:`);
-            this.setupFailures.forEach((failure, index) => {
-                console.error(`
-Setup Failure #${index + 1}
-   Message: ${failure.message}
-   ${failure.stack ? `Stack Trace:\n${failure.stack}` : ''}
-`);
-            });
-            console.error(`❌ Test run aborted due to setup failures.`);
-            console.error(`"${this.getRandomQuote(FAILURE_QUOTES)}"`);
-            return;
-        }
-
         if (this.failedCount > 0) {
             console.log(
                 `❌ ${this.failedCount} of ${totalTests} tests failed | ${this.passedCount} passed | ⏱ Total Execution Time: ${totalTime}s`,
             );
             console.log(`\nFailures:`);
+
             this.failures.forEach((failure, index) => {
                 console.log(`
-  ${index + 1}. ${failure.title}
-     Error: ${failure.message}
-     ${failure.stack ? `Stack Trace:\n${failure.stack}` : ''}
-     Time Taken: ${failure.timeTaken}s
-`);
+    --- Failure #${index + 1} ---
+    Test: ${failure.title}
+    Error(s):
+    ${failure.message}
+    Stack Trace(s):
+    ${failure.stack}
+    Time Taken: ${failure.timeTaken}s
+    `);
             });
+
             console.log(`\n❌ Tests failed with exit code 1`);
             console.log(`"${this.getRandomQuote(FAILURE_QUOTES)}"`);
         } else {
