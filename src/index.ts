@@ -65,28 +65,29 @@ export default class CustomReporterConfig implements Reporter {
     onTestEnd(test: TestCase, result: TestResult): void {
         const timeTaken = (result.duration / 1000).toFixed(2);
 
+        if (result.retry) {
+            console.log(`🔄 Retry attempt for ${test.title} (${result.status})`);
+            return; // Skip logging this attempt, as it will be logged in the final attempt
+        }
+
         if (result.status === 'passed') {
-            if (result.retry) {
+            this.passedCount++;
+            if (test.retries && test.retries > 0) {
                 console.log(`✅ Retried and passed: ${test.title} in ${timeTaken}s`);
             } else {
-                this.passedCount++;
                 console.log(`✅ ${test.title} in ${timeTaken}s`);
             }
         } else if (result.status === 'failed' || result.status === 'timedOut') {
-            if (result.retry) {
-                console.log(`🔄 Retry attempt for ${test.title} (${result.status})`);
-            } else {
-                this.failedCount++;
-                console.error(`❌ ${test.title} failed in ${timeTaken}s`);
+            this.failedCount++;
+            console.error(`❌ ${test.title} failed in ${timeTaken}s`);
 
-                // Capture for the summary
-                this.failures.push({
-                    title: test.title,
-                    message: result.errors.map((e) => e.message || 'No error message available.').join('\n'),
-                    stack: result.errors.map((e) => e.stack || 'No stack trace available.').join('\n'),
-                    timeTaken,
-                });
-            }
+            // Capture for the summary
+            this.failures.push({
+                title: test.title,
+                message: result.errors.map((e) => e.message || 'No error message available.').join('\n'),
+                stack: result.errors.map((e) => e.stack || 'No stack trace available.').join('\n'),
+                timeTaken,
+            });
         } else if (result.status === 'skipped') {
             console.warn(`⚠️ ${test.title} was skipped.`);
         }
@@ -106,23 +107,23 @@ export default class CustomReporterConfig implements Reporter {
 
             this.failures.forEach((failure, index) => {
                 console.log(`
-    --- Failure #${index + 1} ---
-    Test: ${failure.title}
-    Error(s):
-    ${failure.message}
-    Stack Trace(s):
-    ${failure.stack}
-    Time Taken: ${failure.timeTaken}s
-    `);
+        --- Failure #${index + 1} ---
+        Test: ${failure.title}
+        Error(s):
+        ${failure.message}
+        Stack Trace(s):
+        ${failure.stack}
+        Time Taken: ${failure.timeTaken}s
+        `);
             });
 
             console.log(`\n❌ Tests failed with exit code 1`);
             console.log(`"${this.getRandomQuote(FAILURE_QUOTES)}"`);
-            process.exit(1); // Explicitly set the exit code
+            process.exit(1);
         } else {
             console.log(`✅ All ${totalTests} tests passed | ⏱ Total Execution Time: ${totalTime}s`);
             console.log(`"${this.getRandomQuote(SUCCESS_QUOTES)}"`);
-            process.exit(0); // Explicitly set the exit code
+            process.exit(0);
         }
     }
 }
