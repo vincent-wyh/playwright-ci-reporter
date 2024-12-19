@@ -66,8 +66,12 @@ export default class CustomReporterConfig implements Reporter {
         const timeTaken = (result.duration / 1000).toFixed(2);
 
         if (result.status === 'passed') {
-            this.passedCount++;
-            console.log(`✅ ${test.title} in ${timeTaken}s`);
+            if (result.retry) {
+                console.log(`✅ Retried and passed: ${test.title} in ${timeTaken}s`);
+            } else {
+                this.passedCount++;
+                console.log(`✅ ${test.title} in ${timeTaken}s`);
+            }
         } else if (result.status === 'failed' || result.status === 'timedOut') {
             if (result.retry) {
                 console.log(`🔄 Retry attempt for ${test.title} (${result.status})`);
@@ -94,9 +98,9 @@ export default class CustomReporterConfig implements Reporter {
         const totalTests = this.passedCount + this.failedCount;
 
         console.log(`\n`);
-        if (this.failedCount > 0) {
+        if (this.failures.length > 0) {
             console.log(
-                `❌ ${this.failedCount} of ${totalTests} tests failed | ${this.passedCount} passed | ⏱ Total Execution Time: ${totalTime}s`,
+                `❌ ${this.failures.length} of ${totalTests} tests failed | ${this.passedCount} passed | ⏱ Total Execution Time: ${totalTime}s`,
             );
             console.log(`\nFailures:`);
 
@@ -114,9 +118,11 @@ export default class CustomReporterConfig implements Reporter {
 
             console.log(`\n❌ Tests failed with exit code 1`);
             console.log(`"${this.getRandomQuote(FAILURE_QUOTES)}"`);
+            process.exit(1); // Explicitly set the exit code
         } else {
             console.log(`✅ All ${totalTests} tests passed | ⏱ Total Execution Time: ${totalTime}s`);
             console.log(`"${this.getRandomQuote(SUCCESS_QUOTES)}"`);
+            process.exit(0); // Explicitly set the exit code
         }
     }
 }
