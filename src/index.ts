@@ -65,14 +65,15 @@ export default class CustomReporterConfig implements Reporter {
     onTestEnd(test: TestCase, result: TestResult): void {
         const timeTaken = (result.duration / 1000).toFixed(2);
 
-        // Handle retries
+        // Log retry attempts
         if (result.retry) {
             console.log(`🔄 Retry attempt for ${test.title} (${result.status})`);
-            return; // Skip further logging for retries
+            return;
         }
 
         if (result.status === 'passed') {
-            if (test.retries && test.retries > 0) {
+            // Check if the test passed after retry
+            if (test.results && test.results.some((r) => r.retry)) {
                 console.log(`✅ Retried and passed: ${test.title} in ${timeTaken}s`);
             } else {
                 this.passedCount++;
@@ -82,7 +83,7 @@ export default class CustomReporterConfig implements Reporter {
             this.failedCount++;
             console.error(`❌ ${test.title} failed in ${timeTaken}s`);
 
-            // Capture for the summary
+            // Capture only final failures
             this.failures.push({
                 title: test.title,
                 message: result.errors.map((e) => e.message || 'No error message available.').join('\n'),
