@@ -83,7 +83,7 @@ export default class CustomReporterConfig implements Reporter {
             this.failedCount++;
             console.error(`❌ ${test.title} failed in ${timeTaken}s`);
 
-            // Capture only final failures
+            // Capture failure details for summary
             this.failures.push({
                 title: test.title,
                 message: result.errors.map((e) => e.message || 'No error message available.').join('\n'),
@@ -107,25 +107,24 @@ export default class CustomReporterConfig implements Reporter {
             );
             console.log(`\nFailures:`);
 
+            // Log failure details only in the summary
             this.failures.forEach((failure, index) => {
                 console.log(`
         --- Failure #${index + 1} ---
         Test: ${failure.title}
         Error(s):
-        ${failure.message}
-        Stack Trace(s):
-        ${failure.stack}
+        ${failure.stack ? `Stack Trace:\n${failure.stack}` : ''}
         Time Taken: ${failure.timeTaken}s
         `);
             });
 
             console.log(`\n❌ Tests failed with exit code 1`);
             console.log(`"${this.getRandomQuote(FAILURE_QUOTES)}"`);
-            process.exit(1);
+            process.exit(1); // Explicitly set the exit code
         } else {
             console.log(`✅ All ${totalTests} tests passed | ⏱ Total Execution Time: ${totalTime}s`);
             console.log(`"${this.getRandomQuote(SUCCESS_QUOTES)}"`);
-            process.exit(0);
+            process.exit(0); // Explicitly set the exit code
         }
     }
 }
