@@ -50,17 +50,24 @@ export default defineConfig({
 ### **When Tests Pass**
 
 ```plaintext
-2024-12-05T18:09:57.036Z info: ✅ Test Completed: Customer can see and interact with the "Skip to Main Content" button - Status: passed - Time taken: 6.13s
-2024-12-05T18:09:57.642Z info: ✅ Test Completed: Verify tab navigation in the Country and Language FlyIn - Status: passed - Time taken: 6.74s
+✅ Audit accessibility violations on the footer in 7.08s
+✅ Audit accessibility violations on Customer Center Login with active in 6.83s
 
-✅ All Tests Passed:
-“Victory is ours!” - Braveheart
+✅ All 9 tests passed | ⏱ Total: 13.28s
+- Average passed test time: 6.30s
+- Slowest test took: 12.34s
+- Total retries: 0
+"“All systems go!” - NASA"
 ```
 
 ### **When Tests Fail**
 
 ```plaintext
-2024-12-05T18:10:11.796Z info: ❌ Test Completed: Audit accessibility violations on the footer - Status: failed - Time taken: 5.36s
+❌ Audit accessibility violations on MyThomann Login Page with active failed in 1.54s
+🔄 Retry attempt for "Audit accessibility violations on MyThomann Login Page with active" (failed) in 1.62s
+
+
+❌ 1 of 9 tests failed | 8 passed | ⏱ Total: 12.88s
 
 ❌ Summary of Failures:
 
