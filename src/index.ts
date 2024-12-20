@@ -39,7 +39,6 @@ export default class CustomReporterConfig implements Reporter {
     private testRecords = new Map<string, TestRecord>();
     private setupFailures: {message: string; stack?: string}[] = [];
     private startTime: number = 0;
-
     private environmentUrl: string | undefined = process.env.TEST_URL || '';
 
     private getRandomQuote(quotes: string[]): string {
@@ -69,7 +68,6 @@ export default class CustomReporterConfig implements Reporter {
         const title = test.title;
         const timeTaken = (result.duration / 1000).toFixed(2);
 
-        // Ensure we have a record for this test
         if (!this.testRecords.has(title)) {
             this.testRecords.set(title, {
                 test,
@@ -86,19 +84,15 @@ export default class CustomReporterConfig implements Reporter {
 
         // Logging attempts
         if (result.status === 'passed') {
-            // If passed on a retry attempt:
             if (result.retry > 0) {
                 console.log(chalk.green(`✅ Retried and passed: ${test.title} in ${timeTaken}s`));
             } else {
                 console.log(chalk.green(`✅ ${test.title} in ${timeTaken}s`));
             }
         } else if (result.status === 'failed' || result.status === 'timedOut') {
-            // If this is a non-first attempt, it might be a retry.
-            // We don't count failures here, just log them.
             if (result.retry > 0) {
                 console.log(chalk.yellow(`🔄 Retry attempt for "${test.title}" (${result.status}) in ${timeTaken}s`));
             } else {
-                // First failed attempt
                 console.log(chalk.red(`❌ ${test.title} failed in ${timeTaken}s`));
             }
         } else if (result.status === 'skipped') {
@@ -115,23 +109,23 @@ export default class CustomReporterConfig implements Reporter {
         let skippedCount = 0;
         let testCount = 0;
         let totalRetries = 0;
-        const failures = [];
+        const failures: {
+            title: string;
+            message: string;
+            stack: string;
+            timeTaken: number;
+            isTimeout: boolean;
+        }[] = [];
         const passedDurations: number[] = [];
 
-        // Process final outcomes now
         for (const {test, attempts} of this.testRecords.values()) {
             testCount++;
             const finalOutcome = test.outcome();
-            // 'expected' or 'flaky' => passed
-            // 'unexpected' => failed
-            // 'skipped' => skipped
-
             const finalAttempt = attempts[attempts.length - 1];
-            const wasRetried = attempts.length > 1;
-            if (wasRetried) {
-                // Count how many retries happened (attempts - 1 = retries)
-                totalRetries += attempts.length - 1;
-            }
+
+            // Count retries if multiple attempts were made, regardless of final outcome
+            const testRetries = attempts.length > 1 ? attempts.length - 1 : 0;
+            totalRetries += testRetries;
 
             if (finalOutcome === 'expected' || finalOutcome === 'flaky') {
                 passedCount++;
@@ -140,8 +134,6 @@ export default class CustomReporterConfig implements Reporter {
                 failedCount++;
                 const timeTaken = finalAttempt.duration;
                 const isTimeout = finalAttempt.errors.some((e) => e.message.includes('timeout'));
-
-                // Collect error details from final attempt or from any failed attempt
                 const combinedMessage = finalAttempt.errors.map((e) => e.message).join('\n');
                 const combinedStack = finalAttempt.errors.map((e) => e.stack || '').join('\n');
 
@@ -157,7 +149,6 @@ export default class CustomReporterConfig implements Reporter {
             }
         }
 
-        // Compute metrics
         const averageTime =
             passedDurations.length > 0 ? passedDurations.reduce((a, b) => a + b, 0) / passedDurations.length : 0;
         const slowestTest = passedDurations.length > 0 ? Math.max(...passedDurations) : 0;
@@ -166,7 +157,9 @@ export default class CustomReporterConfig implements Reporter {
         if (failures.length > 0) {
             console.log(
                 chalk.red(
-                    `❌ ${failures.length} of ${testCount} tests failed | ${passedCount} passed | ⏱ Total: ${totalTime.toFixed(2)}s`,
+                    `❌ ${failures.length} of ${testCount} tests failed | ${passedCount} passed | ⏱ Total: ${totalTime.toFixed(
+                        2,
+                    )}s`,
                 ),
             );
             console.log(chalk.magenta(`\nAdditional Metrics:`));
