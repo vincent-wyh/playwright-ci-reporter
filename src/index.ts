@@ -1,4 +1,6 @@
 import {Reporter, TestCase, TestResult} from '@playwright/test/reporter';
+import fs from 'fs';
+import chalk from 'chalk';
 
 const FAILURE_QUOTES = [
     '“Houston, we have a problem.” - Apollo 13',
@@ -22,19 +24,33 @@ const SUCCESS_QUOTES = [
     '“Live long and prosper.” - Star Trek',
 ];
 
+interface AttemptInfo {
+    status: TestResult['status'];
+    duration: number;
+    errors: {message: string; stack?: string}[];
+}
+
+interface TestRecord {
+    test: TestCase;
+    attempts: AttemptInfo[];
+}
+
 export default class CustomReporterConfig implements Reporter {
-    private failures: {title: string; message: string; stack?: string; timeTaken: string}[] = [];
+    private testRecords = new Map<string, TestRecord>();
     private setupFailures: {message: string; stack?: string}[] = [];
     private startTime: number = 0;
-    private passedCount: number = 0;
-    private failedCount: number = 0;
+
+    private environmentUrl: string | undefined = process.env.TEST_URL || '';
 
     private getRandomQuote(quotes: string[]): string {
         return quotes[Math.floor(Math.random() * quotes.length)];
     }
 
     onBegin(): void {
-        console.log(`🚀 Test run started!`);
+        console.log(chalk.cyanBright(`🚀 Test run started!`));
+        if (this.environmentUrl) {
+            console.log(chalk.blueBright(`[INFO] Running tests against: ${this.environmentUrl}`));
+        }
         this.startTime = Date.now();
     }
 
@@ -43,86 +59,206 @@ export default class CustomReporterConfig implements Reporter {
             message: error.message,
             stack: error.stack,
         });
-        console.error(`❌ Setup or runtime error: ${error.message}`);
+        console.error(chalk.red(`❌ Setup or runtime error: ${error.message}`));
         if (error.stack) {
-            console.error(error.stack);
+            console.error(chalk.red(error.stack));
         }
     }
 
     onTestEnd(test: TestCase, result: TestResult): void {
+        const title = test.title;
         const timeTaken = (result.duration / 1000).toFixed(2);
 
-        // Determine if this is the final attempt:
-        // The last attempt is when the current attempt index matches `test.results.length - 1`.
-        // The 'retry' property is actually the attempt index (0-based).
-        const isLastAttempt = result.retry === test.results.length - 1;
-
-        if (!isLastAttempt) {
-            // Not the final attempt. Just log info if desired and return.
-            // If the test eventually passes on a retry, we don't record this as failed.
-            if (result.status === 'passed') {
-                // If it passed on a retry attempt (somewhat unusual), we can log it here:
-                console.log(`✅ Retried and passed: ${test.title} in ${timeTaken}s`);
-            } else if (result.status === 'failed' || result.status === 'timedOut') {
-                console.log(`🔄 Retry attempt for ${test.title} (${result.status})`);
-            }
-            return;
+        // Ensure we have a record for this test
+        if (!this.testRecords.has(title)) {
+            this.testRecords.set(title, {
+                test,
+                attempts: [],
+            });
         }
 
-        // This is the final attempt. Check the final outcome.
-        const finalOutcome = test.outcome();
-        // finalOutcome can be 'expected', 'unexpected', 'skipped', or 'flaky'.
+        const record = this.testRecords.get(title)!;
+        record.attempts.push({
+            status: result.status,
+            duration: result.duration / 1000,
+            errors: result.errors.map((e) => ({message: e.message || 'No error message', stack: e.stack})),
+        });
 
-        if (finalOutcome === 'expected' || finalOutcome === 'flaky') {
-            // The test ended in a passing state.
-            this.passedCount++;
-            // If first try success and no retries were needed:
-            if (result.retry === 0 && !test.results.some((r) => r.retry > 0)) {
-                console.log(`✅ ${test.title} in ${timeTaken}s`);
+        // Logging attempts
+        if (result.status === 'passed') {
+            // If passed on a retry attempt:
+            if (result.retry > 0) {
+                console.log(chalk.green(`✅ Retried and passed: ${test.title} in ${timeTaken}s`));
+            } else {
+                console.log(chalk.green(`✅ ${test.title} in ${timeTaken}s`));
             }
-            // If it was flaky (passed after a retry), we already logged the retried and passed message above.
-        } else if (finalOutcome === 'unexpected') {
-            // The test ended in a failing state.
-            this.failedCount++;
-            console.error(`❌ ${test.title} failed in ${timeTaken}s`);
-            this.failures.push({
-                title: test.title,
-                message: result.errors.map((e) => e.message || 'No error message available.').join('\n'),
-                stack: result.errors.map((e) => e.stack || 'No stack trace available.').join('\n'),
-                timeTaken,
-            });
-        } else if (finalOutcome === 'skipped') {
-            console.warn(`⚠️ ${test.title} was skipped.`);
+        } else if (result.status === 'failed' || result.status === 'timedOut') {
+            // If this is a non-first attempt, it might be a retry.
+            // We don't count failures here, just log them.
+            if (result.retry > 0) {
+                console.log(chalk.yellow(`🔄 Retry attempt for "${test.title}" (${result.status}) in ${timeTaken}s`));
+            } else {
+                // First failed attempt
+                console.log(chalk.red(`❌ ${test.title} failed in ${timeTaken}s`));
+            }
+        } else if (result.status === 'skipped') {
+            console.log(chalk.yellow(`⚠️ ${test.title} was skipped.`));
         }
     }
 
     onEnd(): void {
         const endTime = Date.now();
-        const totalTime = ((endTime - this.startTime) / 1000).toFixed(2);
-        const totalTests = this.passedCount + this.failedCount;
+        const totalTime = (endTime - this.startTime) / 1000;
+
+        let passedCount = 0;
+        let failedCount = 0;
+        let skippedCount = 0;
+        let testCount = 0;
+        let totalRetries = 0;
+        const failures = [];
+        const passedDurations: number[] = [];
+
+        // Process final outcomes now
+        for (const {test, attempts} of this.testRecords.values()) {
+            testCount++;
+            const finalOutcome = test.outcome();
+            // 'expected' or 'flaky' => passed
+            // 'unexpected' => failed
+            // 'skipped' => skipped
+
+            const finalAttempt = attempts[attempts.length - 1];
+            const wasRetried = attempts.length > 1;
+            if (wasRetried) {
+                // Count how many retries happened (attempts - 1 = retries)
+                totalRetries += attempts.length - 1;
+            }
+
+            if (finalOutcome === 'expected' || finalOutcome === 'flaky') {
+                passedCount++;
+                passedDurations.push(...attempts.filter((a) => a.status === 'passed').map((a) => a.duration));
+            } else if (finalOutcome === 'unexpected') {
+                failedCount++;
+                const timeTaken = finalAttempt.duration;
+                const isTimeout = finalAttempt.errors.some((e) => e.message.includes('timeout'));
+
+                // Collect error details from final attempt or from any failed attempt
+                const combinedMessage = finalAttempt.errors.map((e) => e.message).join('\n');
+                const combinedStack = finalAttempt.errors.map((e) => e.stack || '').join('\n');
+
+                failures.push({
+                    title: test.title,
+                    message: combinedMessage,
+                    stack: combinedStack,
+                    timeTaken,
+                    isTimeout,
+                });
+            } else if (finalOutcome === 'skipped') {
+                skippedCount++;
+            }
+        }
+
+        // Compute metrics
+        const averageTime =
+            passedDurations.length > 0 ? passedDurations.reduce((a, b) => a + b, 0) / passedDurations.length : 0;
+        const slowestTest = passedDurations.length > 0 ? Math.max(...passedDurations) : 0;
 
         console.log(`\n`);
-        if (this.failures.length > 0) {
+        if (failures.length > 0) {
             console.log(
-                `❌ ${this.failures.length} of ${totalTests} tests failed | ${this.passedCount} passed | ⏱ Total Execution Time: ${totalTime}s`,
+                chalk.red(
+                    `❌ ${failures.length} of ${testCount} tests failed | ${passedCount} passed | ⏱ Total: ${totalTime.toFixed(2)}s`,
+                ),
             );
-            console.log(`\nFailures:`);
-            this.failures.forEach((failure, index) => {
-                console.log(`
-        --- Failure #${index + 1} ---
-        Test: ${failure.title}
-        Error(s):
-        ${failure.stack ? `Stack Trace:\n${failure.stack}` : ''}
-        Time Taken: ${failure.timeTaken}s
-        `);
+            console.log(chalk.magenta(`\nAdditional Metrics:`));
+            console.log(chalk.magenta(`- Average passed test time: ${averageTime.toFixed(2)}s`));
+            if (slowestTest > 0) {
+                console.log(chalk.magenta(`- Slowest test took: ${slowestTest.toFixed(2)}s`));
+            }
+            console.log(chalk.magenta(`- Total retries: ${totalRetries}`));
+
+            console.log(chalk.red(`\nFailures:`));
+            failures.forEach((failure, index) => {
+                console.group(chalk.redBright(`--- Failure #${index + 1} ---`));
+                console.log(chalk.redBright(`  Test: ${failure.title}`));
+                console.log(chalk.red(`  Error(s):\n${failure.message}`));
+                if (failure.stack) {
+                    console.log(chalk.gray(`  Stack Trace:\n${failure.stack}`));
+                }
+                console.log(chalk.red(`  Time Taken: ${failure.timeTaken.toFixed(2)}s`));
+                if (failure.isTimeout) {
+                    console.log(chalk.yellow(`  (This failure involved a timeout.)`));
+                }
+                console.groupEnd();
             });
-            console.log(`\n❌ Tests failed with exit code 1`);
-            console.log(`"${this.getRandomQuote(FAILURE_QUOTES)}"`);
+
+            console.log(chalk.red(`\n❌ Tests failed with exit code 1`));
+            console.log(chalk.red(`"${this.getRandomQuote(FAILURE_QUOTES)}"`));
+
+            this.writeJsonSummary(
+                endTime,
+                totalTime,
+                averageTime,
+                slowestTest,
+                testCount,
+                passedCount,
+                failedCount,
+                skippedCount,
+                totalRetries,
+                failures,
+            );
             process.exit(1);
         } else {
-            console.log(`✅ All ${totalTests} tests passed | ⏱ Total Execution Time: ${totalTime}s`);
-            console.log(`"${this.getRandomQuote(SUCCESS_QUOTES)}"`);
+            console.log(chalk.green(`✅ All ${testCount} tests passed | ⏱ Total: ${totalTime.toFixed(2)}s`));
+            console.log(chalk.magenta(`- Average passed test time: ${averageTime.toFixed(2)}s`));
+            if (slowestTest > 0) {
+                console.log(chalk.magenta(`- Slowest test took: ${slowestTest.toFixed(2)}s`));
+            }
+            console.log(chalk.magenta(`- Total retries: ${totalRetries}`));
+            console.log(chalk.green(`"${this.getRandomQuote(SUCCESS_QUOTES)}"`));
+
+            this.writeJsonSummary(
+                endTime,
+                totalTime,
+                averageTime,
+                slowestTest,
+                testCount,
+                passedCount,
+                failedCount,
+                skippedCount,
+                totalRetries,
+                [],
+            );
             process.exit(0);
         }
+    }
+
+    private writeJsonSummary(
+        endTime: number,
+        totalTime: number,
+        averageTime: number,
+        slowestTest: number,
+        totalTests: number,
+        passed: number,
+        failed: number,
+        skipped: number,
+        totalRetries: number,
+        failures: any[],
+    ) {
+        const summary = {
+            startTime: this.startTime,
+            endTime: endTime,
+            totalTimeSeconds: totalTime,
+            totalTests,
+            passed,
+            failed,
+            skipped,
+            failures,
+            averageTestDurationSeconds: averageTime,
+            slowestTestDurationSeconds: slowestTest,
+            totalRetries,
+            environmentUrl: this.environmentUrl,
+        };
+
+        fs.writeFileSync('test-results.json', JSON.stringify(summary, null, 2));
     }
 }
