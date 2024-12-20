@@ -29,24 +29,15 @@ export default class CustomReporterConfig implements Reporter {
     private passedCount: number = 0;
     private failedCount: number = 0;
 
-    /**
-     * Returns a random quote from the provided list.
-     */
     private getRandomQuote(quotes: string[]): string {
         return quotes[Math.floor(Math.random() * quotes.length)];
     }
 
-    /**
-     * Invoked when the test run begins.
-     */
     onBegin(): void {
         console.log(`🚀 Test run started!`);
         this.startTime = Date.now();
     }
 
-    /**
-     * Invoked when a setup or global error occurs.
-     */
     onError(error: Error): void {
         this.setupFailures.push({
             message: error.message,
@@ -58,46 +49,50 @@ export default class CustomReporterConfig implements Reporter {
         }
     }
 
-    /**
-     * Invoked at the end of each test attempt.
-     */
     onTestEnd(test: TestCase, result: TestResult): void {
         const timeTaken = (result.duration / 1000).toFixed(2);
 
-        // If this is a retry attempt (not the final one), just log the retry and do nothing else.
-        if (result.retry) {
-            console.log(`🔄 Retry attempt for ${test.title} (${result.status})`);
+        // Determine if this is the final attempt:
+        // The last attempt is when the current attempt index matches `test.results.length - 1`.
+        // The 'retry' property is actually the attempt index (0-based).
+        const isLastAttempt = result.retry === test.results.length - 1;
+
+        if (!isLastAttempt) {
+            // Not the final attempt. Just log info if desired and return.
+            // If the test eventually passes on a retry, we don't record this as failed.
+            if (result.status === 'passed') {
+                // If it passed on a retry attempt (somewhat unusual), we can log it here:
+                console.log(`✅ Retried and passed: ${test.title} in ${timeTaken}s`);
+            } else if (result.status === 'failed' || result.status === 'timedOut') {
+                console.log(`🔄 Retry attempt for ${test.title} (${result.status})`);
+            }
             return;
         }
 
-        // This is the final attempt for this test (no more retries).
-        // Determine final outcome.
-        switch (result.status) {
-            case 'passed':
-                this.passedCount++;
-                // If passed on a final attempt and there were retries, log that it finally passed
-                if (test.results.some((r) => r.retry)) {
-                    console.log(`✅ Retried and passed: ${test.title} in ${timeTaken}s`);
-                } else {
-                    console.log(`✅ ${test.title} in ${timeTaken}s`);
-                }
-                break;
+        // This is the final attempt. Check the final outcome.
+        const finalOutcome = test.outcome();
+        // finalOutcome can be 'expected', 'unexpected', 'skipped', or 'flaky'.
 
-            case 'failed':
-            case 'timedOut':
-                this.failedCount++;
-                console.error(`❌ ${test.title} failed in ${timeTaken}s`);
-                this.failures.push({
-                    title: test.title,
-                    message: result.errors.map((e) => e.message || 'No error message available.').join('\n'),
-                    stack: result.errors.map((e) => e.stack || 'No stack trace available.').join('\n'),
-                    timeTaken,
-                });
-                break;
-
-            case 'skipped':
-                console.warn(`⚠️ ${test.title} was skipped.`);
-                break;
+        if (finalOutcome === 'expected' || finalOutcome === 'flaky') {
+            // The test ended in a passing state.
+            this.passedCount++;
+            // If first try success and no retries were needed:
+            if (result.retry === 0 && !test.results.some((r) => r.retry > 0)) {
+                console.log(`✅ ${test.title} in ${timeTaken}s`);
+            }
+            // If it was flaky (passed after a retry), we already logged the retried and passed message above.
+        } else if (finalOutcome === 'unexpected') {
+            // The test ended in a failing state.
+            this.failedCount++;
+            console.error(`❌ ${test.title} failed in ${timeTaken}s`);
+            this.failures.push({
+                title: test.title,
+                message: result.errors.map((e) => e.message || 'No error message available.').join('\n'),
+                stack: result.errors.map((e) => e.stack || 'No stack trace available.').join('\n'),
+                timeTaken,
+            });
+        } else if (finalOutcome === 'skipped') {
+            console.warn(`⚠️ ${test.title} was skipped.`);
         }
     }
 
