@@ -1,6 +1,5 @@
 import {Reporter, TestCase, TestResult} from '@playwright/test/reporter';
 
-// Constants for Quotes
 const FAILURE_QUOTES = [
     '“Houston, we have a problem.” - Apollo 13',
     '“Failure is not an option.” - Apollo 13',
@@ -60,38 +59,45 @@ export default class CustomReporterConfig implements Reporter {
     }
 
     /**
-     * Invoked at the end of each test.
+     * Invoked at the end of each test attempt.
      */
     onTestEnd(test: TestCase, result: TestResult): void {
         const timeTaken = (result.duration / 1000).toFixed(2);
 
-        // Log retry attempts
+        // If this is a retry attempt (not the final one), just log the retry and do nothing else.
         if (result.retry) {
             console.log(`🔄 Retry attempt for ${test.title} (${result.status})`);
             return;
         }
 
-        if (result.status === 'passed') {
-            // Check if the test passed after retry
-            if (test.results && test.results.some((r) => r.retry)) {
-                console.log(`✅ Retried and passed: ${test.title} in ${timeTaken}s`);
-            } else {
+        // This is the final attempt for this test (no more retries).
+        // Determine final outcome.
+        switch (result.status) {
+            case 'passed':
                 this.passedCount++;
-                console.log(`✅ ${test.title} in ${timeTaken}s`);
-            }
-        } else if (result.status === 'failed' || result.status === 'timedOut') {
-            this.failedCount++;
-            console.error(`❌ ${test.title} failed in ${timeTaken}s`);
+                // If passed on a final attempt and there were retries, log that it finally passed
+                if (test.results.some((r) => r.retry)) {
+                    console.log(`✅ Retried and passed: ${test.title} in ${timeTaken}s`);
+                } else {
+                    console.log(`✅ ${test.title} in ${timeTaken}s`);
+                }
+                break;
 
-            // Capture failure details for summary
-            this.failures.push({
-                title: test.title,
-                message: result.errors.map((e) => e.message || 'No error message available.').join('\n'),
-                stack: result.errors.map((e) => e.stack || 'No stack trace available.').join('\n'),
-                timeTaken,
-            });
-        } else if (result.status === 'skipped') {
-            console.warn(`⚠️ ${test.title} was skipped.`);
+            case 'failed':
+            case 'timedOut':
+                this.failedCount++;
+                console.error(`❌ ${test.title} failed in ${timeTaken}s`);
+                this.failures.push({
+                    title: test.title,
+                    message: result.errors.map((e) => e.message || 'No error message available.').join('\n'),
+                    stack: result.errors.map((e) => e.stack || 'No stack trace available.').join('\n'),
+                    timeTaken,
+                });
+                break;
+
+            case 'skipped':
+                console.warn(`⚠️ ${test.title} was skipped.`);
+                break;
         }
     }
 
@@ -106,8 +112,6 @@ export default class CustomReporterConfig implements Reporter {
                 `❌ ${this.failures.length} of ${totalTests} tests failed | ${this.passedCount} passed | ⏱ Total Execution Time: ${totalTime}s`,
             );
             console.log(`\nFailures:`);
-
-            // Log failure details only in the summary
             this.failures.forEach((failure, index) => {
                 console.log(`
         --- Failure #${index + 1} ---
@@ -117,14 +121,13 @@ export default class CustomReporterConfig implements Reporter {
         Time Taken: ${failure.timeTaken}s
         `);
             });
-
             console.log(`\n❌ Tests failed with exit code 1`);
             console.log(`"${this.getRandomQuote(FAILURE_QUOTES)}"`);
-            process.exit(1); // Explicitly set the exit code
+            process.exit(1);
         } else {
             console.log(`✅ All ${totalTests} tests passed | ⏱ Total Execution Time: ${totalTime}s`);
             console.log(`"${this.getRandomQuote(SUCCESS_QUOTES)}"`);
-            process.exit(0); // Explicitly set the exit code
+            process.exit(0);
         }
     }
 }
