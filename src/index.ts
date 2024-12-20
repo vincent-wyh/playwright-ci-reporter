@@ -35,16 +35,27 @@ interface TestRecord {
     attempts: AttemptInfo[];
 }
 
+/**
+ * Custom reporter for Playwright tests.
+ */
 export default class CustomReporterConfig implements Reporter {
     private testRecords = new Map<string, TestRecord>();
     private setupFailures: {message: string; stack?: string}[] = [];
     private startTime: number = 0;
     private environmentUrl: string | undefined = process.env.TEST_URL || '';
 
+    /**
+     * Get a random quote from the provided list.
+     * @param {string[]} quotes - List of quotes.
+     * @returns {string} - Random quote.
+     */
     private getRandomQuote(quotes: string[]): string {
         return quotes[Math.floor(Math.random() * quotes.length)];
     }
 
+    /**
+     * Called when the test run begins.
+     */
     onBegin(): void {
         console.log(chalk.cyanBright(`🚀 Test run started!`));
         if (this.environmentUrl) {
@@ -53,6 +64,10 @@ export default class CustomReporterConfig implements Reporter {
         this.startTime = Date.now();
     }
 
+    /**
+     * Called when an error occurs during setup or runtime.
+     * @param {Error} error - The error that occurred.
+     */
     onError(error: Error): void {
         this.setupFailures.push({
             message: error.message,
@@ -64,6 +79,11 @@ export default class CustomReporterConfig implements Reporter {
         }
     }
 
+    /**
+     * Called when a test ends.
+     * @param {TestCase} test - The test case that ended.
+     * @param {TestResult} result - The result of the test case.
+     */
     onTestEnd(test: TestCase, result: TestResult): void {
         const title = test.title;
         const timeTaken = (result.duration / 1000).toFixed(2);
@@ -100,6 +120,9 @@ export default class CustomReporterConfig implements Reporter {
         }
     }
 
+    /**
+     * Called when the test run ends.
+     */
     onEnd(): void {
         const endTime = Date.now();
         const totalTime = (endTime - this.startTime) / 1000;
@@ -225,6 +248,19 @@ export default class CustomReporterConfig implements Reporter {
         }
     }
 
+    /**
+     * Write the test summary to a JSON file.
+     * @param {number} endTime - The end time of the test run.
+     * @param {number} totalTime - The total time taken for the test run.
+     * @param {number} averageTime - The average time taken for passed tests.
+     * @param {number} slowestTest - The duration of the slowest test.
+     * @param {number} totalTests - The total number of tests.
+     * @param {number} passed - The number of passed tests.
+     * @param {number} failed - The number of failed tests.
+     * @param {number} skipped - The number of skipped tests.
+     * @param {number} totalRetries - The total number of retries.
+     * @param {any[]} failures - The list of failures.
+     */
     private writeJsonSummary(
         endTime: number,
         totalTime: number,
