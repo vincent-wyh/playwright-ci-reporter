@@ -1,6 +1,6 @@
 import {Reporter, TestCase, TestResult} from '@playwright/test/reporter';
 import fs from 'fs';
-import chalk from 'chalk';
+import {colors} from './Colors';
 
 const FAILURE_QUOTES = [
     '“Houston, we have a problem.” - Apollo 13',
@@ -44,49 +44,33 @@ export default class CustomReporterConfig implements Reporter {
     private startTime: number = 0;
     private environmentUrl: string | undefined = process.env.TEST_URL || '';
 
-    /**
-     * Get a random quote from the provided list.
-     * @param {string[]} quotes - List of quotes.
-     * @returns {string} - Random quote.
-     */
     private getRandomQuote(quotes: string[]): string {
         return quotes[Math.floor(Math.random() * quotes.length)];
     }
 
-    /**
-     * Called when the test run begins.
-     */
     onBegin(): void {
-        console.log(chalk.cyanBright(`🚀 Test run started!`));
+        console.log(`${colors.fgCyan}🚀 Test run started!${colors.reset}`);
         if (this.environmentUrl) {
-            console.log(chalk.blueBright(`[INFO] Running tests against: ${this.environmentUrl}`));
+            console.log(`${colors.fgBlue}[INFO] Running tests against: ${this.environmentUrl}${colors.reset}`);
         }
         this.startTime = Date.now();
     }
 
-    /**
-     * Called when an error occurs during setup or runtime.
-     * @param {Error} error - The error that occurred.
-     */
     onError(error: Error): void {
         this.setupFailures.push({
             message: error.message,
             stack: error.stack,
         });
-        console.error(chalk.red(`❌ Setup or runtime error: ${error.message}`));
+        console.error(`${colors.fgRed}❌ Setup or runtime error: ${error.message}${colors.reset}`);
         if (error.stack) {
-            console.error(chalk.red(error.stack));
+            console.error(`${colors.fgRed}${error.stack}${colors.reset}`);
         }
     }
 
-    /**
-     * Called when a test ends.
-     * @param {TestCase} test - The test case that ended.
-     * @param {TestResult} result - The result of the test case.
-     */
     onTestEnd(test: TestCase, result: TestResult): void {
         const title = test.title;
-        const timeTaken = (result.duration / 1000).toFixed(2);
+        const timeTakenSec = result.duration / 1000;
+        const timeTakenFormatted = timeTakenSec.toFixed(2);
 
         if (!this.testRecords.has(title)) {
             this.testRecords.set(title, {
@@ -98,34 +82,40 @@ export default class CustomReporterConfig implements Reporter {
         const record = this.testRecords.get(title)!;
         record.attempts.push({
             status: result.status,
-            duration: result.duration / 1000,
-            errors: result.errors.map((e) => ({message: e.message || 'No error message', stack: e.stack})),
+            duration: timeTakenSec,
+            errors: result.errors.map((e) => ({
+                message: e.message || 'No error message',
+                stack: e.stack,
+            })),
         });
 
         // Logging attempts
         if (result.status === 'passed') {
             if (result.retry > 0) {
-                console.log(chalk.green(`✅ Retried and passed: ${test.title} in ${timeTaken}s`));
+                console.log(
+                    `${colors.fgGreen}✅ Retried and passed: ${title} in ${timeTakenFormatted}s${colors.reset}`,
+                );
             } else {
-                console.log(chalk.green(`✅ ${test.title} in ${timeTaken}s`));
+                console.log(`${colors.fgGreen}✅ ${title} in ${timeTakenFormatted}s${colors.reset}`);
             }
         } else if (result.status === 'failed' || result.status === 'timedOut') {
             if (result.retry > 0) {
-                console.log(chalk.yellow(`🔄 Retry attempt for "${test.title}" (${result.status}) in ${timeTaken}s`));
+                console.log(
+                    `${colors.fgYellow}🔄 Retry attempt for "${title}" (${result.status}) in ${timeTakenFormatted}s${colors.reset}`,
+                );
             } else {
-                console.log(chalk.red(`❌ ${test.title} failed in ${timeTaken}s`));
+                console.log(`${colors.fgRed}❌ ${title} failed in ${timeTakenFormatted}s${colors.reset}`);
             }
         } else if (result.status === 'skipped') {
-            console.log(chalk.yellow(`⚠️ ${test.title} was skipped.`));
+            console.log(`${colors.fgYellow}⚠️ ${title} was skipped.${colors.reset}`);
         }
     }
 
-    /**
-     * Called when the test run ends.
-     */
     onEnd(): void {
         const endTime = Date.now();
-        const totalTime = (endTime - this.startTime) / 1000;
+        const totalTimeSec = (endTime - this.startTime) / 1000;
+        const totalTimeDisplay =
+            totalTimeSec < 60 ? `${totalTimeSec.toFixed(2)}s` : `${(totalTimeSec / 60).toFixed(2)}min`; // Convert to min only if >= 60s
 
         let passedCount = 0;
         let failedCount = 0;
@@ -141,12 +131,13 @@ export default class CustomReporterConfig implements Reporter {
         }[] = [];
         const passedDurations: number[] = [];
 
+        // Process final outcomes
         for (const {test, attempts} of this.testRecords.values()) {
             testCount++;
             const finalOutcome = test.outcome();
             const finalAttempt = attempts[attempts.length - 1];
 
-            // Count retries if multiple attempts were made, regardless of final outcome
+            // Count retries if multiple attempts were made
             const testRetries = attempts.length > 1 ? attempts.length - 1 : 0;
             totalRetries += testRetries;
 
@@ -155,7 +146,6 @@ export default class CustomReporterConfig implements Reporter {
                 passedDurations.push(...attempts.filter((a) => a.status === 'passed').map((a) => a.duration));
             } else if (finalOutcome === 'unexpected') {
                 failedCount++;
-                const timeTaken = finalAttempt.duration;
                 const isTimeout = finalAttempt.errors.some((e) => e.message.includes('timeout'));
                 const combinedMessage = finalAttempt.errors.map((e) => e.message).join('\n');
                 const combinedStack = finalAttempt.errors.map((e) => e.stack || '').join('\n');
@@ -164,7 +154,7 @@ export default class CustomReporterConfig implements Reporter {
                     title: test.title,
                     message: combinedMessage,
                     stack: combinedStack,
-                    timeTaken,
+                    timeTaken: finalAttempt.duration,
                     isTimeout,
                 });
             } else if (finalOutcome === 'skipped') {
@@ -172,6 +162,7 @@ export default class CustomReporterConfig implements Reporter {
             }
         }
 
+        // Compute average + slowest durations
         const averageTime =
             passedDurations.length > 0 ? passedDurations.reduce((a, b) => a + b, 0) / passedDurations.length : 0;
         const slowestTest = passedDurations.length > 0 ? Math.max(...passedDurations) : 0;
@@ -179,40 +170,36 @@ export default class CustomReporterConfig implements Reporter {
         console.log(`\n`);
         if (failures.length > 0) {
             console.log(
-                chalk.red(
-                    `❌ ${failures.length} of ${testCount} tests failed | ${passedCount} passed | ⏱ Total: ${totalTime.toFixed(
-                        2,
-                    )}s`,
-                ),
+                `${colors.fgRed}❌ ${failures.length} of ${testCount} tests failed | ${passedCount} passed | ⏱ Total: ${totalTimeDisplay}${colors.reset}`,
             );
-            console.log(chalk.magenta(`\nAdditional Metrics:`));
-            console.log(chalk.magenta(`- Average passed test time: ${averageTime.toFixed(2)}s`));
+            console.log(`${colors.fgMagenta}\nAdditional Metrics:${colors.reset}`);
+            console.log(`${colors.fgMagenta}- Average passed test time: ${averageTime.toFixed(2)}s${colors.reset}`);
             if (slowestTest > 0) {
-                console.log(chalk.magenta(`- Slowest test took: ${slowestTest.toFixed(2)}s`));
+                console.log(`${colors.fgMagenta}- Slowest test took: ${slowestTest.toFixed(2)}s${colors.reset}`);
             }
-            console.log(chalk.magenta(`- Total retries: ${totalRetries}`));
+            console.log(`${colors.fgMagenta}- Total retries: ${totalRetries}${colors.reset}`);
 
-            console.log(chalk.red(`\nFailures:`));
+            console.log(`${colors.fgRed}\nFailures:${colors.reset}`);
             failures.forEach((failure, index) => {
-                console.group(chalk.redBright(`--- Failure #${index + 1} ---`));
-                console.log(chalk.redBright(`  Test: ${failure.title}`));
-                console.log(chalk.red(`  Error(s):\n${failure.message}`));
+                console.group(`--- Failure #${index + 1} ---`);
+                console.log(`  Test: ${failure.title}`);
+                console.log(`  Error(s):\n${failure.message}`);
                 if (failure.stack) {
-                    console.log(chalk.gray(`  Stack Trace:\n${failure.stack}`));
+                    console.log(`  Stack Trace:\n${failure.stack}`);
                 }
-                console.log(chalk.red(`  Time Taken: ${failure.timeTaken.toFixed(2)}s`));
+                console.log(`${colors.fgRed}  Time Taken: ${failure.timeTaken.toFixed(2)}s${colors.reset}`);
                 if (failure.isTimeout) {
-                    console.log(chalk.yellow(`  (This failure involved a timeout.)`));
+                    console.log(`${colors.fgYellow}  (This failure involved a timeout.)${colors.reset}`);
                 }
                 console.groupEnd();
             });
 
-            console.log(chalk.red(`\n❌ Tests failed with exit code 1`));
-            console.log(chalk.red(`"${this.getRandomQuote(FAILURE_QUOTES)}"`));
+            console.log(`${colors.fgRed}\n❌ Tests failed with exit code 1${colors.reset}`);
+            console.log(`${colors.fgRed}"${this.getRandomQuote(FAILURE_QUOTES)}"${colors.reset}`);
 
             this.writeJsonSummary(
                 endTime,
-                totalTime,
+                totalTimeSec,
                 averageTime,
                 slowestTest,
                 testCount,
@@ -224,17 +211,19 @@ export default class CustomReporterConfig implements Reporter {
             );
             process.exit(1);
         } else {
-            console.log(chalk.green(`✅ All ${testCount} tests passed | ⏱ Total: ${totalTime.toFixed(2)}s`));
-            console.log(chalk.magenta(`- Average passed test time: ${averageTime.toFixed(2)}s`));
+            console.log(
+                `${colors.fgGreen}✅ All ${testCount} tests passed | ⏱ Total: ${totalTimeDisplay}${colors.reset}`,
+            );
+            console.log(`${colors.fgMagenta}- Average passed test time: ${averageTime.toFixed(2)}s${colors.reset}`);
             if (slowestTest > 0) {
-                console.log(chalk.magenta(`- Slowest test took: ${slowestTest.toFixed(2)}s`));
+                console.log(`${colors.fgMagenta}- Slowest test took: ${slowestTest.toFixed(2)}s${colors.reset}`);
             }
-            console.log(chalk.magenta(`- Total retries: ${totalRetries}`));
-            console.log(chalk.green(`"${this.getRandomQuote(SUCCESS_QUOTES)}"`));
+            console.log(`${colors.fgMagenta}- Total retries: ${totalRetries}${colors.reset}`);
+            console.log(`${colors.fgGreen}"${this.getRandomQuote(SUCCESS_QUOTES)}"${colors.reset}`);
 
             this.writeJsonSummary(
                 endTime,
-                totalTime,
+                totalTimeSec,
                 averageTime,
                 slowestTest,
                 testCount,
@@ -248,22 +237,9 @@ export default class CustomReporterConfig implements Reporter {
         }
     }
 
-    /**
-     * Write the test summary to a JSON file.
-     * @param {number} endTime - The end time of the test run.
-     * @param {number} totalTime - The total time taken for the test run.
-     * @param {number} averageTime - The average time taken for passed tests.
-     * @param {number} slowestTest - The duration of the slowest test.
-     * @param {number} totalTests - The total number of tests.
-     * @param {number} passed - The number of passed tests.
-     * @param {number} failed - The number of failed tests.
-     * @param {number} skipped - The number of skipped tests.
-     * @param {number} totalRetries - The total number of retries.
-     * @param {any[]} failures - The list of failures.
-     */
     private writeJsonSummary(
         endTime: number,
-        totalTime: number,
+        totalTimeSec: number,
         averageTime: number,
         slowestTest: number,
         totalTests: number,
@@ -275,8 +251,8 @@ export default class CustomReporterConfig implements Reporter {
     ) {
         const summary = {
             startTime: this.startTime,
-            endTime: endTime,
-            totalTimeSeconds: totalTime,
+            endTime,
+            totalTimeSeconds: totalTimeSec,
             totalTests,
             passed,
             failed,
