@@ -2,8 +2,8 @@
     "name": "playwright-ci-reporter",
     "version": "1.1.18",
     "description": "A CI-friendly custom reporter for Playwright tests with enhanced logging.",
-    "main": "dist/index.js",
-    "types": "dist/index.d.ts",
+    "main": "dist/CustomReporter.js",
+    "types": "dist/CustomReporter.d.ts",
     "repository": {
         "type": "git",
         "url": "https://github.com/basal-john/playwright-ci-reporter.git"
