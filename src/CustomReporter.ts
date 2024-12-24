@@ -44,10 +44,18 @@ export default class CustomReporterConfig implements Reporter {
     private startTime: number = 0;
     private environmentUrl: string | undefined = process.env.TEST_URL || '';
 
+    /**
+     * Returns a random quote from the provided list.
+     * @param {string[]} quotes - Array of quotes to choose from.
+     * @returns {string} A random quote.
+     */
     private getRandomQuote(quotes: string[]): string {
         return quotes[Math.floor(Math.random() * quotes.length)];
     }
 
+    /**
+     * Called when the test run begins.
+     */
     onBegin(): void {
         console.log(`${colors.fgCyan}🚀 Test run started!${colors.reset}`);
         if (this.environmentUrl) {
@@ -56,6 +64,10 @@ export default class CustomReporterConfig implements Reporter {
         this.startTime = Date.now();
     }
 
+    /**
+     * Called when an error occurs during setup or runtime.
+     * @param {Error} error - The error that occurred.
+     */
     onError(error: Error): void {
         this.setupFailures.push({
             message: error.message,
@@ -67,6 +79,11 @@ export default class CustomReporterConfig implements Reporter {
         }
     }
 
+    /**
+     * Called when a test ends.
+     * @param {TestCase} test - The test case that ended.
+     * @param {TestResult} result - The result of the test case.
+     */
     onTestEnd(test: TestCase, result: TestResult): void {
         const title = test.title;
         const timeTakenSec = result.duration / 1000;
@@ -111,6 +128,9 @@ export default class CustomReporterConfig implements Reporter {
         }
     }
 
+    /**
+     * Called when the test run ends.
+     */
     onEnd(): void {
         const endTime = Date.now();
         const totalTimeSec = (endTime - this.startTime) / 1000;
@@ -237,6 +257,19 @@ export default class CustomReporterConfig implements Reporter {
         }
     }
 
+    /**
+     * Writes a JSON summary of the test results to a file.
+     * @param {number} endTime - The end time of the test run.
+     * @param {number} totalTimeSec - The total time taken for the test run in seconds.
+     * @param {number} averageTime - The average duration of passed tests in seconds.
+     * @param {number} slowestTest - The duration of the slowest test in seconds.
+     * @param {number} totalTests - The total number of tests run.
+     * @param {number} passed - The number of tests that passed.
+     * @param {number} failed - The number of tests that failed.
+     * @param {number} skipped - The number of tests that were skipped.
+     * @param {number} totalRetries - The total number of retries across all tests.
+     * @param {any[]} failures - An array of failure details.
+     */
     private writeJsonSummary(
         endTime: number,
         totalTimeSec: number,
