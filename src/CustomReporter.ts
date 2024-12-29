@@ -167,12 +167,11 @@ export default class CustomReporterConfig implements Reporter {
             } else if (finalOutcome === 'unexpected') {
                 failedCount++;
                 const isTimeout = finalAttempt.errors.some((e) => e.message.includes('timeout'));
-                const combinedMessage = finalAttempt.errors.map((e) => e.message).join('\n');
                 const combinedStack = finalAttempt.errors.map((e) => e.stack || '').join('\n');
 
                 failures.push({
                     title: test.title,
-                    message: combinedMessage,
+                    message: '',
                     stack: combinedStack,
                     timeTaken: finalAttempt.duration,
                     isTimeout,
@@ -203,11 +202,9 @@ export default class CustomReporterConfig implements Reporter {
             failures.forEach((failure, index) => {
                 console.group(`--- Failure #${index + 1} ---`);
                 console.log(`  Test: ${failure.title}`);
-                console.log(`  Error(s):\n${failure.message}`);
                 if (failure.stack) {
                     console.log(`  Stack Trace:\n${failure.stack}`);
                 }
-                console.log(`${colors.fgRed}  Time Taken: ${failure.timeTaken.toFixed(2)}s${colors.reset}`);
                 if (failure.isTimeout) {
                     console.log(`${colors.fgYellow}  (This failure involved a timeout.)${colors.reset}`);
                 }
